@@ -1,7 +1,7 @@
 # Contributor: Natanael Copa <ncopa@alpinelinux.org>
 # Maintainer: Natanael Copa <ncopa@alpinelinux.org>
 pkgname=sshguard
-pkgver=1.6.1
+pkgver=1.6.3
 pkgrel=0
 pkgdesc="Log monitor that blocks with iptables on bad behaviour"
 url="http://www.sshguard.net/"
@@ -12,9 +12,11 @@ depends_dev=""
 makedepends="$depends_dev flex bison autoconf automake libtool"
 install=""
 subpackages="$pkgname-doc"
-source="http://downloads.sourceforge.net/project/sshguard/sshguard/$pkgver/sshguard-$pkgver.tar.xz
+source="http://downloads.sourceforge.net/project/sshguard/sshguard/$pkgver/sshguard-$pkgver.tar.gz
 	sshguard.initd
 	sshguard.confd
+	0001-Revert-Remove-PID-file-option.patch
+	0002-parser-add-rfc3164-support-facility.priority.patch
 	"
 
 _builddir="$srcdir"/sshguard-$pkgver
@@ -48,12 +50,18 @@ package() {
 		"$pkgdir"/etc/conf.d/sshguard || return 1
 }
 
-md5sums="522c5e7d507105b050584b7646418844  sshguard-1.6.1.tar.xz
+md5sums="fd29a3f09579593481658bed5d0c3b01  sshguard-1.6.3.tar.gz
 a6d13584b6919a7ebb431e48efa30ab2  sshguard.initd
-02dc914d310ea759a66ebb136f495e4e  sshguard.confd"
-sha256sums="f431899c20fa2f41fa293605af96ff97d44823b84db41c914ee60da44f1ff6c8  sshguard-1.6.1.tar.xz
+02dc914d310ea759a66ebb136f495e4e  sshguard.confd
+32d9def52ac8ba78a1e74008f77505bb  0001-Revert-Remove-PID-file-option.patch
+52bd791d30bba0095f5def7bbc29ae2b  0002-parser-add-rfc3164-support-facility.priority.patch"
+sha256sums="6c4d3be2acf6349b4ac5d6fff4bbcd8fa988c82876d848cbbd0c7c99bc0438c7  sshguard-1.6.3.tar.gz
 dfdd53abae3c94a9390a21cfe14ed12ddaff5c74d275336705de74d05d2beeca  sshguard.initd
-c48cfe8ad166133d99ddc44ba4dd9abbb64718eda6c6bbced931d8a97bf9cddc  sshguard.confd"
-sha512sums="a21c28e2efcadeff514c8a5b1ed938ba466f9116b40ee4283ad411fe6248bfa7186d9add9a136399f659a74fb2b517c6033027ec546dae9bec5b47edf32db3ed  sshguard-1.6.1.tar.xz
+c48cfe8ad166133d99ddc44ba4dd9abbb64718eda6c6bbced931d8a97bf9cddc  sshguard.confd
+b311603640dbc39587c80dc065401264bb791b3ac2aacccc29c9864c0a2442da  0001-Revert-Remove-PID-file-option.patch
+2f3a25fe58d6f5ad39b66a3f8a30f0c5d5c4ff3d683d8f92f4dc5cb63122f751  0002-parser-add-rfc3164-support-facility.priority.patch"
+sha512sums="584da0bdf260023f2bff39cab073085830d2b1aeb44d2bac23df0033ce86a0017aa746af58cd033cc5610bf983a07f859e1e6f3d31beef97f4b3b2a58ed08af5  sshguard-1.6.3.tar.gz
 3827bc437cf9e8281e12ce9a7e74e1186fd509aa971934d0f190215889a1eff83455e87f87812abfa3209b3d4fcf8b184e6aa778d753b9da5e778ac79d39c729  sshguard.initd
-fc59e273e481dc7256a33114fc3b113f8b85406401a7d7113d0daba012dfd413c7bf85a0106539b859d90442976fe265355ccdf943a455f37c8ad7e5891e4b26  sshguard.confd"
+fc59e273e481dc7256a33114fc3b113f8b85406401a7d7113d0daba012dfd413c7bf85a0106539b859d90442976fe265355ccdf943a455f37c8ad7e5891e4b26  sshguard.confd
+7499cd9266ebe916256416e02bc50abc509afae9236bf34686192915f929b1a08be1b56c680cb1084267666ead222eee07ded3eb43a363f8d6a264b22bf61bdd  0001-Revert-Remove-PID-file-option.patch
+29e1fed2536004fec42c9961dec63e08fd33eaedb1417028f545a2e0b0b28c3ce932b23018a69ab6888afb7f2458d4ec7ee326eb0d4e33af7ff0e02d2e05c151  0002-parser-add-rfc3164-support-facility.priority.patch"

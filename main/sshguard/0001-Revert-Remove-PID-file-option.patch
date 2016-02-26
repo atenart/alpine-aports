@@ -1,0 +1,177 @@
+From ee0601ae2a53403f493c8661b04c90ac1773d2cc Mon Sep 17 00:00:00 2001
+From: Antoine Tenart <antoine.tenart@ack.tf>
+Date: Fri, 26 Feb 2016 19:35:13 +0100
+Subject: [PATCH 1/2] Revert "Remove PID file option"
+
+This reverts commit 0cbd9946553d9483cfe0a69d42e605124af8b45d and
+resolves conflicts.
+---
+ ChangeLog              |  1 -
+ man/sshguard.8         |  4 ++++
+ man/sshguard.8.rst     |  4 ++++
+ src/sshguard.c         | 27 +++++++++++++++++++++++++++
+ src/sshguard_options.c |  9 +++++++--
+ src/sshguard_options.h |  1 +
+ 6 files changed, 43 insertions(+), 3 deletions(-)
+
+diff --git a/ChangeLog b/ChangeLog
+index 9b5a7852c187..5da93a356191 100644
+--- a/ChangeLog
++++ b/ChangeLog
+@@ -5,7 +5,6 @@
+     - Implement logging as wrappers around syslog(2)
+     - Improve log and error messages
+     - Match sendmail authentication failures
+-    - Remove PID file option
+     - Remove SIGTSTP and SIGCONT handler
+     - Remove reverse mapping attack signature
+     - Remove safe_fgets() and exit on interrupt
+diff --git a/man/sshguard.8 b/man/sshguard.8
+index 791ec44a02f7..215d37fd7a06 100644
+--- a/man/sshguard.8
++++ b/man/sshguard.8
+@@ -59,6 +59,7 @@ level margin: \\n[rst2man-indent\\n[rst2man-indent-level]]
+ [\fB\-b\fP \fIthresh\fP:\fIfile\fP]
+ [\fB\-e\fP \fIscript\fP]
+ [\fB\-f\fP \fIservice\fP:\fIpidfile\fP]
++[\fB\-i\fP \fIpidfile\fP]
+ [\fB\-l\fP \fIsource\fP]
+ [\fB\-p\fP \fIinterval\fP]
+ [\fB\-s\fP \fIinterval\fP]
+@@ -101,6 +102,9 @@ PROGRAMS below.
+ .B \fB\-f\fP \fIservice\fP:\fIpidfile\fP
+ See LOG VALIDATION below.
+ .TP
++.B \fB\-i\fP \fIpidfile\fP
++Write the PID of \fBsshguard\fP to \fIpidfile\fP\&.
++.TP
+ .B \fB\-l\fP \fIsource\fP
+ Monitor \fIsource\fP for log messages. By default, \fBsshguard\fP reads log
+ messages from standard input. Give this option once for every source to
+diff --git a/man/sshguard.8.rst b/man/sshguard.8.rst
+index a9b739a266c5..6ee89cd2a06d 100644
+--- a/man/sshguard.8.rst
++++ b/man/sshguard.8.rst
+@@ -32,6 +32,7 @@ SYNOPSIS
+ [**-b** `thresh`:`file`]
+ [**-e** `script`]
+ [**-f** `service`:`pidfile`]
++[**-i** `pidfile`]
+ [**-l** `source`]
+ [**-p** `interval`]
+ [**-s** `interval`]
+@@ -75,6 +76,9 @@ OPTIONS
+ **-f** `service`:`pidfile`
+     See LOG VALIDATION below.
+ 
++**-i** `pidfile`
++    Write the PID of **sshguard** to `pidfile`.
++
+ **-l** `source`
+     Monitor `source` for log messages. By default, **sshguard** reads log
+     messages from standard input. Give this option once for every source to
+diff --git a/src/sshguard.c b/src/sshguard.c
+index 01f6bc66e8b8..e07c3d961008 100644
+--- a/src/sshguard.c
++++ b/src/sshguard.c
+@@ -84,6 +84,10 @@ static void purge_limbo_stale(void);
+ /* release blocked attackers after their penalty expired */
+ static void *pardonBlocked();
+ 
++/* create or destroy my own pidfile */
++static void my_pidfile_create(void);
++static void my_pidfile_destroy(void);
++
+ /**
+  * Fill 'buf' with a line from a log source and set the 'source_id' pointer.
+  * Return 0 on success and -1 on failure.
+@@ -126,6 +130,12 @@ int main(int argc, char *argv[]) {
+         exit(64);
+     }
+ 
++    /* create pidfile, if requested */
++    if (opts.my_pidfile != NULL) {
++        my_pidfile_create();
++        atexit(my_pidfile_destroy);
++    }
++
+     if (fw_init() != FWALL_OK) {
+         sshguard_log(LOG_ERR, "Failed to initialize firewall");
+         exit(69);
+@@ -466,3 +476,20 @@ static void process_blacklisted_addresses() {
+     free(addresses);
+     free(service_codes);
+ }
++
++static void my_pidfile_create() {
++    FILE *p = fopen(opts.my_pidfile, "w");
++    if (p == NULL) {
++        sshguard_log(LOG_ERR, "Failed to create pid file: %m");
++        exit(73);
++    }
++
++    fprintf(p, "%d\n", (int)getpid());
++    fclose(p);
++}
++
++static void my_pidfile_destroy() {
++    if (unlink(opts.my_pidfile) != 0) {
++        sshguard_log(LOG_ERR, "Failed to remove pid file: %m");
++    }
++}
+diff --git a/src/sshguard_options.c b/src/sshguard_options.c
+index e6ce74b0fe7b..dcd18faf0e3b 100644
+--- a/src/sshguard_options.c
++++ b/src/sshguard_options.c
+@@ -39,7 +39,7 @@ sshg_opts opts;
+ 
+ static void usage(void) {
+     fprintf(stderr, "usage: sshguard [-v] [-a thresh] [-b thresh:file] [-e script]\n"
+-                    "\t\t[-f service:pid-file] [-l source] [-p interval]\n"
++                    "\t\t[-f service:pid-file] [-i pidfile] [-l source] [-p interval]\n"
+                     "\t\t[-s interval] [-w address | file]\n");
+ }
+ 
+@@ -55,6 +55,7 @@ static void options_init(sshg_opts *opt) {
+     opt->stale_threshold = 20 * 60;
+     opt->abuse_threshold = 40;
+     opt->blacklist_threshold = 0;
++    opt->my_pidfile = NULL;
+     opt->blacklist_filename = NULL;
+     opt->has_polled_files = 0;
+ }
+@@ -66,7 +67,7 @@ int get_options_cmdline(int argc, char *argv[]) {
+ 
+     options_init(&opts);
+ 
+-    while ((optch = getopt(argc, argv, "b:p:s:a:w:f:l:e:vh")) != -1) {
++    while ((optch = getopt(argc, argv, "b:p:s:a:w:f:l:i:e:vh")) != -1) {
+         switch (optch) {
+             case 'b':
+                 opts.blacklist_filename = (char *)malloc(strlen(optarg) + 1);
+@@ -148,6 +149,10 @@ int get_options_cmdline(int argc, char *argv[]) {
+                 opts.has_polled_files = 1;
+                 break;
+ 
++            case 'i':   /* specify pidfile for my PID */
++                opts.my_pidfile = optarg;
++                break;
++
+             case 'e':     /* provide a script executed each time a firewall
+                            event is risen */
+                 status = stat(optarg, &event_script_buf);
+diff --git a/src/sshguard_options.h b/src/sshguard_options.h
+index 2557d29ce0d0..fcc7a016cdca 100644
+--- a/src/sshguard_options.h
++++ b/src/sshguard_options.h
+@@ -27,6 +27,7 @@ typedef struct {
+     time_t stale_threshold;             /* time after which suspicious entries remained idle are forgiven */
+     unsigned int abuse_threshold;       /* number of attacks before raising an abuse */
+     unsigned int blacklist_threshold;   /* number of abuses after which blacklisting the attacker */
++    char *my_pidfile;                   /* NULL if disabled, or string with filename where user wants my PID tracked */
+     char *blacklist_filename;           /* NULL to disable blacklist, or path of the blacklist file */
+     int has_polled_files;               /* true if we are polling log any file, false if reading from stdin */
+ } sshg_opts;
+-- 
+2.7.2
+
